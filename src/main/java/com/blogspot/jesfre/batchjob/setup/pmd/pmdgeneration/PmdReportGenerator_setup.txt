@@ -1,0 +1,6 @@
+PROJECT:MY_PROJECT
+JIRA_TICKET:999999
+VERSION:1
+C:\path\to\some\output\folder\code-review-v1
+C:\path\to\project\File1.java
+C:\path\to\project\File2.java
