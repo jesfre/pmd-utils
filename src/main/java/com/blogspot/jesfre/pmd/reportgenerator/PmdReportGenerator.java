@@ -1,4 +1,4 @@
-package com.blogspot.jesfre.batchjob.setup.pmd.pmdgeneration;
+package com.blogspot.jesfre.pmd.reportgenerator;
 
 import static com.blogspot.jesfre.velocity.utils.VelocityTemplateProcessor.getProcessor;
 

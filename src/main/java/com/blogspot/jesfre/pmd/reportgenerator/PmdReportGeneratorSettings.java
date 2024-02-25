@@ -1,4 +1,4 @@
-package com.blogspot.jesfre.batchjob.setup.pmd.pmdgeneration;
+package com.blogspot.jesfre.pmd.reportgenerator;
 
 import java.util.ArrayList;
 import java.util.List;
