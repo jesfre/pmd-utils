@@ -22,8 +22,8 @@ import com.blogspot.jesfre.velocity.utils.VelocityTemplateProcessor;
 public class PmdReportGenerator {
 	// ----------- SET -----------------------
 //	private static final String SETUP_FILE = "C:/path/tosettings/pmd/pmdgeneration/PmdReportGenerator_setup.txt";
-	private static final String PMD_RULESSHEET_PROJECT1 = "C:/path/to/setup/pmd/pmdgeneration/ruleset-PMDrules.xml";
-	private static final String PMD_RULESSHEET_PROJECT2 = "C:/path/to/setup/pmd/pmdgeneration/ruleset-PMDrules-project2.XML";
+//	private static final String PMD_RULESSHEET_PROJECT1 = "C:/path/to/setup/pmd/pmdgeneration/ruleset-PMDrules.xml";
+//	private static final String PMD_RULESSHEET_PROJECT2 = "C:/path/to/setup/pmd/pmdgeneration/ruleset-PMDrules-project2.XML";
 	private static final String JAVA_PATH = "C:\\Program Files\\Java\\jdk1.7.0_80";
 	private static final String PMD_ROOT = "C:\\dev\\pmd-bin-5.5.1";
 
@@ -42,7 +42,7 @@ public class PmdReportGenerator {
 		PmdReportGeneratorSettings reportSettings = pmdReportGenerator.loadSettingsProperties(setupFilePath);
 		pmdReportGenerator.generatePmdCommandFile(reportSettings);
 		pmdReportGenerator.generateFileListFile(reportSettings);
-		pmdReportGenerator.generateCommentsFile(reportSettings, "comments-template.txt");
+		pmdReportGenerator.generateCommentsFile(reportSettings);
 
 		System.out.println("\nExecuting batch file.");
 		CommandLineRunner runner = new CommandLineRunner();
@@ -63,9 +63,12 @@ public class PmdReportGenerator {
 		String workingDir = config.getString("workingDirectory");
 
 		PmdReportGeneratorSettings settings = new PmdReportGeneratorSettings();
+		settings.setConfigFile(setupFileLocation);
 		settings.setProject(config.getString("project", "no_project"));
 		settings.setJiraTicket(config.getString("jira.ticket", ""));
 		settings.setVersion(config.getString("review.version", "1"));
+		settings.setSummaryTemplate(config.getString("resource.summaryTemplate", ""));
+		settings.setPmdRulesFile(config.getString("resource.pmdRulesFile", ""));
 		settings.setWorkingDirPath(workingDir);
 
 		List<String> fileList = config.getList("file");
@@ -74,6 +77,10 @@ public class PmdReportGenerator {
 		List<String> fList = config.getList("f");
 		settings.getClassFileLocationList().addAll(fList);
 
+		if(StringUtils.isBlank(settings.getPmdRulesFile())) {
+			throw new IllegalStateException("Not PMD rules file was provided.");
+		}
+		
 		return settings;
 	}
 
@@ -84,11 +91,14 @@ public class PmdReportGenerator {
 		String version = settings.getVersion();
 		String workingDirPath = settings.getWorkingDirPath();
 
-		String rulesheet = PMD_RULESSHEET_PROJECT1;
-		if ("ABE".equals(project)) {
-			rulesheet = PMD_RULESSHEET_PROJECT2;
+		String rulesPath = FilenameUtils.getFullPath(settings.getPmdRulesFile());
+		String rulesFilename = FilenameUtils.getName(settings.getPmdRulesFile());
+		if(StringUtils.isBlank(rulesPath)) {
+			// Will try to use a file located in the same directory as the configuration file  
+			rulesPath = FilenameUtils.getPath(settings.getConfigFile());
 		}
-
+		String rulesheet = rulesPath + "/" + rulesFilename;
+		
 		// New batch file-name definition
 		Integer fileCount = 1;
 		String newFileName = workingDirPath + "/pmd_commands_" + fileCount + ".bat";
@@ -134,9 +144,6 @@ public class PmdReportGenerator {
 			String cmdAfter = StringUtils.replace(tmplAfter, "SRC_FILE", f);
 			cmdAfter = StringUtils.replace(cmdAfter, "CLASS_NAME", cName);
 
-			// System.out.println(cmdBefore);
-			// System.out.println(cmdAfter);
-
 			resultContent.add("SET JAVA_HOME=\""+JAVA_PATH+"\"");
 			resultContent.add("SET PATH=%JAVA_HOME%\\bin;%PATH%");
 			resultContent.add(ECHO);
@@ -173,8 +180,20 @@ public class PmdReportGenerator {
 		FileUtils.writeLines(modifiedFilesComments, simplenames);
 	}
 
-	private void generateCommentsFile(PmdReportGeneratorSettings reportSettings, String commentsTemplate) throws IOException {
-		System.out.println("Generating comments file...");
+	private void generateCommentsFile(PmdReportGeneratorSettings reportSettings) throws IOException {
+		System.out.println("Generating summary file...");
+		if(StringUtils.isBlank(reportSettings.getSummaryTemplate())) {
+			System.err.println("No summary-template file was provided.");
+			return;
+		}
+		
+		String path = FilenameUtils.getFullPath(reportSettings.getSummaryTemplate());
+		String templateFilename = FilenameUtils.getName(reportSettings.getSummaryTemplate());
+		if(StringUtils.isBlank(path)) {
+			// Will try to use a template file located in the same directory as the configuration file  
+			path = FilenameUtils.getPath(reportSettings.getConfigFile());
+		}
+		
 		String commentsFilename = "_jira_comments_" + reportSettings.getJiraTicket() + "-v" + reportSettings.getVersion() + ".txt";
 		File commentsFile = new File(reportSettings.getWorkingDirPath() + "/" + commentsFilename);
 
@@ -188,8 +207,8 @@ public class PmdReportGenerator {
 		contextParams.put("version", reportSettings.getVersion());
 		contextParams.put("fileList", simplenames);
 		
-		VelocityTemplateProcessor templateProcessor = getProcessor("C:/path/to/com/blogspot/jesfre/batchjob/setup/pmd/resources/");
-		String commentsContent = templateProcessor.process(commentsTemplate, contextParams);
+		VelocityTemplateProcessor templateProcessor = getProcessor(path);
+		String commentsContent = templateProcessor.process(templateFilename, contextParams);
 		FileUtils.writeStringToFile(commentsFile, commentsContent);
 
 	}

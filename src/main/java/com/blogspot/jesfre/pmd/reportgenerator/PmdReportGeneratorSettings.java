@@ -4,13 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * @TODO MErge with {CodeDiffGeneratorSettings}
- * 
  * @author <a href="mailto:jorge.ruiz.aquino@gmail.com">Jorge Ruiz Aquino</a>
  *         Aug 6, 2022
  */
 public class PmdReportGeneratorSettings {
 
+	private String configFile;
 	private String project;
 	private String jiraTicket;
 	private String version;
@@ -18,6 +17,16 @@ public class PmdReportGeneratorSettings {
 	private List<String> classFileLocationList = new ArrayList<String>();
 	private String commandFile;
 	private String reportOutputLocation;
+	private String summaryTemplate;
+	private String pmdRulesFile;
+
+	public String getConfigFile() {
+		return configFile;
+	}
+
+	public void setConfigFile(String configFile) {
+		this.configFile = configFile;
+	}
 
 	public String getProject() {
 		return project;
@@ -69,6 +78,22 @@ public class PmdReportGeneratorSettings {
 
 	public void setReportOutputLocation(String reportOutputLocation) {
 		this.reportOutputLocation = reportOutputLocation;
+	}
+
+	public String getSummaryTemplate() {
+		return summaryTemplate;
+	}
+
+	public void setSummaryTemplate(String summaryTemplate) {
+		this.summaryTemplate = summaryTemplate;
+	}
+
+	public String getPmdRulesFile() {
+		return pmdRulesFile;
+	}
+
+	public void setPmdRulesFile(String pmdRulesFile) {
+		this.pmdRulesFile = pmdRulesFile;
 	}
 
 }
