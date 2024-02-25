@@ -3,12 +3,15 @@ package com.blogspot.jesfre.batchjob.setup.pmd.pmdgeneration;
 import static com.blogspot.jesfre.velocity.utils.VelocityTemplateProcessor.getProcessor;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.configuration.ConfigurationException;
+import org.apache.commons.configuration.PropertiesConfiguration;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.StringUtils;
@@ -18,7 +21,7 @@ import com.blogspot.jesfre.velocity.utils.VelocityTemplateProcessor;
 
 public class PmdReportGenerator {
 	// ----------- SET -----------------------
-	private static final String SETUP_FILE = "C:/path/tosettings/pmd/pmdgeneration/PmdReportGenerator_setup.txt";
+//	private static final String SETUP_FILE = "C:/path/tosettings/pmd/pmdgeneration/PmdReportGenerator_setup.txt";
 	private static final String PMD_RULESSHEET_PROJECT1 = "C:/path/to/setup/pmd/pmdgeneration/ruleset-PMDrules.xml";
 	private static final String PMD_RULESSHEET_PROJECT2 = "C:/path/to/setup/pmd/pmdgeneration/ruleset-PMDrules-project2.XML";
 	private static final String JAVA_PATH = "C:\\Program Files\\Java\\jdk1.7.0_80";
@@ -29,9 +32,15 @@ public class PmdReportGenerator {
 	private static final String ECHO = "echo on";
 
 	public static void main(String[] args) throws Exception {
+		if (args.length == 0) {
+			throw new IllegalArgumentException("Setup file was not provided.");
+		}
+		String setupFilePath = args[0];
+
 		System.out.println("Generating batch file.");
 		PmdReportGenerator pmdReportGenerator = new PmdReportGenerator();
-		PmdReportGeneratorSettings reportSettings = pmdReportGenerator.generatePmdCommandFile();
+		PmdReportGeneratorSettings reportSettings = pmdReportGenerator.loadSettingsProperties(setupFilePath);
+		pmdReportGenerator.generatePmdCommandFile(reportSettings);
 		pmdReportGenerator.generateFileListFile(reportSettings);
 		pmdReportGenerator.generateCommentsFile(reportSettings, "comments-template.txt");
 
@@ -46,21 +55,34 @@ public class PmdReportGenerator {
 		System.out.println("\nDone.");
 	}
 
-	private PmdReportGeneratorSettings generatePmdCommandFile() throws Exception {
-		List<String> lines = FileUtils.readLines(new File(SETUP_FILE));
-		String project = "IES"; // IES or ABE
-		String jiraTicket = "";
-		String version = null;
-		String workingDirPath = "";
-		int startingLine = 0;
-		if (lines.size() > 0) {
-			project = StringUtils.remove(lines.get(startingLine++), "PROJECT:");
-			jiraTicket = StringUtils.remove(lines.get(startingLine++), "JIRA_TICKET:");
-			version = StringUtils.remove(lines.get(startingLine++), "VERSION:");
-			workingDirPath = lines.get(startingLine++);
-		} else {
-			throw new Exception("Setup file is empty.");
-		}
+	@SuppressWarnings("unchecked")
+	private PmdReportGeneratorSettings loadSettingsProperties(String setupFileLocation) throws FileNotFoundException, IOException, ConfigurationException {
+		PropertiesConfiguration config = new PropertiesConfiguration();
+		config.setListDelimiter('|');
+		config.load(setupFileLocation);
+		String workingDir = config.getString("workingDirectory");
+
+		PmdReportGeneratorSettings settings = new PmdReportGeneratorSettings();
+		settings.setProject(config.getString("project", "no_project"));
+		settings.setJiraTicket(config.getString("jira.ticket", ""));
+		settings.setVersion(config.getString("review.version", "1"));
+		settings.setWorkingDirPath(workingDir);
+
+		List<String> fileList = config.getList("file");
+		settings.getClassFileLocationList().addAll(fileList);
+
+		List<String> fList = config.getList("f");
+		settings.getClassFileLocationList().addAll(fList);
+
+		return settings;
+	}
+
+	private void generatePmdCommandFile(PmdReportGeneratorSettings settings) throws Exception {
+		List<String> lines = settings.getClassFileLocationList();
+		String project = settings.getProject(); // IES or ABE
+		String jiraTicket = settings.getJiraTicket();
+		String version = settings.getVersion();
+		String workingDirPath = settings.getWorkingDirPath();
 
 		String rulesheet = PMD_RULESSHEET_PROJECT1;
 		if ("ABE".equals(project)) {
@@ -71,14 +93,14 @@ public class PmdReportGenerator {
 		Integer fileCount = 1;
 		String newFileName = workingDirPath + "/pmd_commands_" + fileCount + ".bat";
 		File newFile = new File(newFileName);
-		if (StringUtils.isBlank(version)) {
+		if (StringUtils.isBlank(settings.getVersion())) {
 			while (newFile.exists()) {
 				fileCount++;
 				newFileName = workingDirPath + "/pmd_commands_" + fileCount + ".bat";
 				newFile = new File(newFileName);
 			}
 		} else {
-			fileCount = Integer.valueOf(version);
+			fileCount = Integer.valueOf(settings.getVersion());
 			newFileName = workingDirPath + "/pmd_commands_" + fileCount + ".bat";
 			newFile = new File(newFileName);
 		}
@@ -102,17 +124,7 @@ public class PmdReportGenerator {
 
 		System.out.println("Reading files...");
 		List<String> resultContent = new ArrayList<String>();
-		List<String> filePathList = new ArrayList<String>();
-		int c = 0;
 		for (String f : lines) {
-			if (c < startingLine || StringUtils.isEmpty(f)) {
-				// Skip setup lines
-				c++;
-				continue;
-			}
-			if (f.startsWith("#") || f.startsWith("//")) {
-				continue;
-			}
 			String cName = FilenameUtils.getBaseName(f);
 			System.out.println("- " + cName + ".java");
 
@@ -132,7 +144,6 @@ public class PmdReportGenerator {
 			resultContent.add(cmdBefore);
 			resultContent.add(ECHO);
 			resultContent.add(cmdAfter);
-			filePathList.add(f);
 		}
 		resultContent.add("exit 0");
 		if (resultContent.size() > 1) {
@@ -144,15 +155,8 @@ public class PmdReportGenerator {
 			System.out.println("New batch file generated: " + newFileName);
 		}
 
-		PmdReportGeneratorSettings settings = new PmdReportGeneratorSettings();
-		settings.setProject(project);
-		settings.setJiraTicket(jiraTicket);
-		settings.setVersion(version);
-		settings.setWorkingDirPath(workingDirPath);
 		settings.setCommandFile(newFileName);
 		settings.setReportOutputLocation(reportsPath.getAbsolutePath());
-		settings.setClassFileLocationList(filePathList);
-		return settings;
 	}
 
 	private void generateFileListFile(PmdReportGeneratorSettings reportSettings) throws IOException {

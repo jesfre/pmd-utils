@@ -1,5 +1,6 @@
 package com.blogspot.jesfre.batchjob.setup.pmd.pmdgeneration;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -14,7 +15,7 @@ public class PmdReportGeneratorSettings {
 	private String jiraTicket;
 	private String version;
 	private String workingDirPath;
-	private List<String> classFileLocationList;
+	private List<String> classFileLocationList = new ArrayList<String>();
 	private String commandFile;
 	private String reportOutputLocation;
 
@@ -52,10 +53,6 @@ public class PmdReportGeneratorSettings {
 
 	public List<String> getClassFileLocationList() {
 		return classFileLocationList;
-	}
-
-	public void setClassFileLocationList(List<String> classFileLocationList) {
-		this.classFileLocationList = classFileLocationList;
 	}
 
 	public String getCommandFile() {
