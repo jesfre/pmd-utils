@@ -1,0 +1,10 @@
+// Available data: jiraTicket, version, fileList
+
+#set($document1 = $jiraTicket+"-files-v"+$version+".zip")
+#set($document2 = $jiraTicket+"-analysis-v"+$version+".docx")
+
+
+|Files analyzed:|·
+#foreach($f in $fileList)
+$f
+#end|
