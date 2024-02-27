@@ -10,6 +10,10 @@ import java.util.List;
 public class PmdReportGeneratorSettings {
 
 	private String configFile;
+	private String summaryTemplate;
+	private String pmdRulesFile;
+	private String javaHome;
+	private String pmdHome;
 	private String project;
 	private String jiraTicket;
 	private String version;
@@ -17,8 +21,6 @@ public class PmdReportGeneratorSettings {
 	private List<String> classFileLocationList = new ArrayList<String>();
 	private String commandFile;
 	private String reportOutputLocation;
-	private String summaryTemplate;
-	private String pmdRulesFile;
 
 	public String getConfigFile() {
 		return configFile;
@@ -26,6 +28,38 @@ public class PmdReportGeneratorSettings {
 
 	public void setConfigFile(String configFile) {
 		this.configFile = configFile;
+	}
+
+	public String getSummaryTemplate() {
+		return summaryTemplate;
+	}
+
+	public void setSummaryTemplate(String summaryTemplate) {
+		this.summaryTemplate = summaryTemplate;
+	}
+
+	public String getPmdRulesFile() {
+		return pmdRulesFile;
+	}
+
+	public void setPmdRulesFile(String pmdRulesFile) {
+		this.pmdRulesFile = pmdRulesFile;
+	}
+
+	public String getJavaHome() {
+		return javaHome;
+	}
+
+	public void setJavaHome(String javaHome) {
+		this.javaHome = javaHome;
+	}
+
+	public String getPmdHome() {
+		return pmdHome;
+	}
+
+	public void setPmdHome(String pmdHome) {
+		this.pmdHome = pmdHome;
 	}
 
 	public String getProject() {
@@ -78,22 +112,6 @@ public class PmdReportGeneratorSettings {
 
 	public void setReportOutputLocation(String reportOutputLocation) {
 		this.reportOutputLocation = reportOutputLocation;
-	}
-
-	public String getSummaryTemplate() {
-		return summaryTemplate;
-	}
-
-	public void setSummaryTemplate(String summaryTemplate) {
-		this.summaryTemplate = summaryTemplate;
-	}
-
-	public String getPmdRulesFile() {
-		return pmdRulesFile;
-	}
-
-	public void setPmdRulesFile(String pmdRulesFile) {
-		this.pmdRulesFile = pmdRulesFile;
 	}
 
 }

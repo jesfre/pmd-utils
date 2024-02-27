@@ -20,15 +20,7 @@ import com.blogspot.jesfre.commandline.CommandLineRunner;
 import com.blogspot.jesfre.velocity.utils.VelocityTemplateProcessor;
 
 public class PmdReportGenerator {
-	// ----------- SET -----------------------
-//	private static final String SETUP_FILE = "C:/path/tosettings/pmd/pmdgeneration/PmdReportGenerator_setup.txt";
-//	private static final String PMD_RULESSHEET_PROJECT1 = "C:/path/to/setup/pmd/pmdgeneration/ruleset-PMDrules.xml";
-//	private static final String PMD_RULESSHEET_PROJECT2 = "C:/path/to/setup/pmd/pmdgeneration/ruleset-PMDrules-project2.XML";
-	private static final String JAVA_PATH = "C:\\Program Files\\Java\\jdk1.7.0_80";
-	private static final String PMD_ROOT = "C:\\dev\\pmd-bin-5.5.1";
-
-	// ---------------------------------------
-	private static final String CMD_TEMPLATE = "call " + PMD_ROOT + "\\bin\\pmd -d \"SRC_FILE\" -R \"PMD_RULES_PATH\" -f csv -r \"WORKING_DIR_PATH/REPORTS_FOLDER/CLASS_NAME_PMD_Issues_STAGE_Code_Fix_vVERSION.csv\"";
+	private static final String CMD_TEMPLATE = "call PMD_ROOT\\bin\\pmd -d \"SRC_FILE\" -R \"PMD_RULES_PATH\" -f csv -r \"WORKING_DIR_PATH/REPORTS_FOLDER/CLASS_NAME_PMD_Issues_STAGE_Code_Fix_vVERSION.csv\"";
 	private static final String ECHO = "echo on";
 
 	public static void main(String[] args) throws Exception {
@@ -64,6 +56,8 @@ public class PmdReportGenerator {
 
 		PmdReportGeneratorSettings settings = new PmdReportGeneratorSettings();
 		settings.setConfigFile(setupFileLocation);
+		settings.setJavaHome(config.getString("resource.javaHome", ""));
+		settings.setPmdHome(config.getString("resource.pmdHome", ""));
 		settings.setProject(config.getString("project", "no_project"));
 		settings.setJiraTicket(config.getString("jira.ticket", ""));
 		settings.setVersion(config.getString("review.version", "1"));
@@ -77,6 +71,12 @@ public class PmdReportGenerator {
 		List<String> fList = config.getList("f");
 		settings.getClassFileLocationList().addAll(fList);
 
+		if(StringUtils.isBlank(settings.getJavaHome())) {
+			throw new IllegalStateException("Java home path is not provided.");
+		}
+		if(StringUtils.isBlank(settings.getPmdHome())) {
+			throw new IllegalStateException("PMD home path is not provided.");
+		}
 		if(StringUtils.isBlank(settings.getPmdRulesFile())) {
 			throw new IllegalStateException("Not PMD rules file was provided.");
 		}
@@ -86,9 +86,6 @@ public class PmdReportGenerator {
 
 	private void generatePmdCommandFile(PmdReportGeneratorSettings settings) throws Exception {
 		List<String> lines = settings.getClassFileLocationList();
-		String project = settings.getProject(); // IES or ABE
-		String jiraTicket = settings.getJiraTicket();
-		String version = settings.getVersion();
 		String workingDirPath = settings.getWorkingDirPath();
 
 		String rulesPath = FilenameUtils.getFullPath(settings.getPmdRulesFile());
@@ -97,7 +94,7 @@ public class PmdReportGenerator {
 			// Will try to use a file located in the same directory as the configuration file  
 			rulesPath = FilenameUtils.getPath(settings.getConfigFile());
 		}
-		String rulesheet = rulesPath + "/" + rulesFilename;
+		String rulesheet = rulesPath + rulesFilename;
 		
 		// New batch file-name definition
 		Integer fileCount = 1;
@@ -125,6 +122,7 @@ public class PmdReportGenerator {
 		reportsPath.mkdirs();
 
 		String cmdTemplate = StringUtils.replace(CMD_TEMPLATE, "WORKING_DIR_PATH", workingDirPath);
+		cmdTemplate = StringUtils.replace(cmdTemplate, "PMD_ROOT", settings.getPmdHome());
 		cmdTemplate = StringUtils.replace(cmdTemplate, "PMD_RULES_PATH", rulesheet);
 		cmdTemplate = StringUtils.replace(cmdTemplate, "REPORTS_FOLDER", reportsFolder);
 		cmdTemplate = StringUtils.replace(cmdTemplate, "VERSION", fileCount.toString());
@@ -144,7 +142,7 @@ public class PmdReportGenerator {
 			String cmdAfter = StringUtils.replace(tmplAfter, "SRC_FILE", f);
 			cmdAfter = StringUtils.replace(cmdAfter, "CLASS_NAME", cName);
 
-			resultContent.add("SET JAVA_HOME=\""+JAVA_PATH+"\"");
+			resultContent.add("SET JAVA_HOME=\""+settings.getJavaHome()+"\"");
 			resultContent.add("SET PATH=%JAVA_HOME%\\bin;%PATH%");
 			resultContent.add(ECHO);
 			resultContent.add("java -version");
@@ -194,7 +192,7 @@ public class PmdReportGenerator {
 			path = FilenameUtils.getPath(reportSettings.getConfigFile());
 		}
 		
-		String commentsFilename = "_jira_comments_" + reportSettings.getJiraTicket() + "-v" + reportSettings.getVersion() + ".txt";
+		String commentsFilename = "_report_summary_" + reportSettings.getJiraTicket() + "-v" + reportSettings.getVersion() + ".txt";
 		File commentsFile = new File(reportSettings.getWorkingDirPath() + "/" + commentsFilename);
 
 		List<String> simplenames = new ArrayList<String>();
