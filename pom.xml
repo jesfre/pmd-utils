@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.blogspot.jesfre</groupId>
 	<artifactId>pmd-utils</artifactId>
-	<version>0.2</version>
+	<version>1.0</version>
 
 	<dependencies>
 		<dependency>
@@ -29,7 +29,7 @@
 		<dependency>
 			<groupId>com.blogspot.jesfre</groupId>
 			<artifactId>utilities</artifactId>
-			<version>0.5</version>
+			<version>1.0</version>
 		</dependency>
 	</dependencies>
 
