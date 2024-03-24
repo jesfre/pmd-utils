@@ -29,7 +29,7 @@
 		<dependency>
 			<groupId>com.blogspot.jesfre</groupId>
 			<artifactId>utilities</artifactId>
-			<version>1.0</version>
+			<version>1.5</version>
 		</dependency>
 	</dependencies>
 
