@@ -85,7 +85,7 @@ public class PmdReportGenerator {
 		// Will discover the modified files from the repository
 		List<SvnLog> logList = logExtractor
 				.withComment(reportSettings.getJiraTicket())
-				.verbose(true)
+				.verbose(reportSettings.isVerbose())
 				.lookMonthsBack(3)
 				.clearTempFiles(true)
 				.exportLog(false)
@@ -109,7 +109,7 @@ public class PmdReportGenerator {
 			List<SvnLog> logListIndividualFile = logExtractor
 					// .withLimit(2)
 					.withComment(reportSettings.getJiraTicket())
-					.verbose(false)
+					.verbose(reportSettings.isVerbose())
 					.lookMonthsBack(MAX_MONTHS_SEARCH_IN_PAST)
 					.clearTempFiles(true)
 					.exportLog(false)
@@ -133,12 +133,12 @@ public class PmdReportGenerator {
 			exportedFilePath = sourFolderPath + "/" + exportedFileName;
 			if(headRev > 0 ) {
 				new SvnExport()
-				.verbose(false)
+				.verbose(reportSettings.isVerbose())
 				.overwriteFile(true)
 				.export(headRev, fileUrlString, formatPath(exportedFilePath));
 			} else {
 				new SvnExport()
-				.verbose(false)
+				.verbose(reportSettings.isVerbose())
 				.overwriteFile(true)
 				.exportHead(fileUrlString, formatPath(exportedFilePath));
 			}
@@ -146,11 +146,9 @@ public class PmdReportGenerator {
 			reportSettings.getClassFileLocationList().add(exportedFilePath);
 		}
 
-		if(!reportSettings.getClassFileLocationList().isEmpty()) {
-			// TODO print in verbose mode only
+		if(reportSettings.isVerbose() && !reportSettings.getClassFileLocationList().isEmpty()) {
 			System.out.println("Files committed with " + reportSettings.getJiraTicket());
 			for(String fileFound : reportSettings.getClassFileLocationList()) {
-				// TODO print in verbose mode only
 				System.out.println("- " + FilenameUtils.getName(fileFound));
 			}
 		}
@@ -274,7 +272,9 @@ public class PmdReportGenerator {
 		List<String> resultContent = new ArrayList<String>();
 		for (String f : lines) {
 			String cName = FilenameUtils.getBaseName(f);
-			System.out.println("- " + cName + ".java");
+			if(settings.isVerbose()) {
+				System.out.println("- " + cName + ".java");
+			}
 
 			String cmdBefore = StringUtils.replace(tmplBefore, "SRC_FILE", f);
 			cmdBefore = StringUtils.replace(cmdBefore, "CLASS_NAME", cName);
@@ -319,7 +319,6 @@ public class PmdReportGenerator {
 	}
 
 	private void generateCommentsFile(PmdReportGeneratorSettings reportSettings) throws IOException {
-		System.out.println("Generating summary file...");
 		if(StringUtils.isBlank(reportSettings.getSummaryTemplate())) {
 			System.err.println("No summary-template file was provided.");
 			return;

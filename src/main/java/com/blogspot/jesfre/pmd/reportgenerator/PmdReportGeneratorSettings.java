@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+ *
  * @author <a href="mailto:jorge.ruiz.aquino@gmail.com">Jorge Ruiz Aquino</a>
  *         Aug 6, 2022
  */
@@ -12,6 +13,7 @@ public class PmdReportGeneratorSettings {
 	private String configFile;
 	private String repositoryBaseUrl;
 	private String repositoryWorkingBranch;
+	private boolean verbose;
 	private String summaryTemplate;
 	private String pmdRulesFile;
 	private String javaHome;
@@ -46,6 +48,14 @@ public class PmdReportGeneratorSettings {
 
 	public void setRepositoryWorkingBranch(String repositoryWorkingBranch) {
 		this.repositoryWorkingBranch = repositoryWorkingBranch;
+	}
+
+	public boolean isVerbose() {
+		return verbose;
+	}
+
+	public void setVerbose(boolean verbose) {
+		this.verbose = verbose;
 	}
 
 	public String getSummaryTemplate() {
@@ -141,6 +151,8 @@ public class PmdReportGeneratorSettings {
 		builder.append(repositoryBaseUrl);
 		builder.append(", repositoryWorkingBranch=");
 		builder.append(repositoryWorkingBranch);
+		builder.append(", verbose=");
+		builder.append(verbose);
 		builder.append(", summaryTemplate=");
 		builder.append(summaryTemplate);
 		builder.append(", pmdRulesFile=");
