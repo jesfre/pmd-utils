@@ -43,11 +43,10 @@ public class PmdReportGenerator {
 		if (args.length == 0) {
 			throw new IllegalArgumentException("Setup file was not provided.");
 		}
-		String setupFilePath = args[0];
 
 		System.out.println("Generating batch file.");
 		PmdReportGenerator pmdReportGenerator = new PmdReportGenerator();
-		PmdReportGeneratorSettings reportSettings = pmdReportGenerator.loadSettingsProperties(setupFilePath);
+		PmdReportGeneratorSettings reportSettings = pmdReportGenerator.loadSettingsProperties(args);
 
 		if(reportSettings.getClassFileLocationList().isEmpty()) {
 			System.out.println("Exporting files from repo...");
@@ -158,35 +157,61 @@ public class PmdReportGenerator {
 	}
 
 	@SuppressWarnings("unchecked")
-	private PmdReportGeneratorSettings loadSettingsProperties(String setupFileLocation) throws FileNotFoundException, IOException, ConfigurationException {
-		PropertiesConfiguration config = new PropertiesConfiguration();
-		config.setListDelimiter('|');
-		config.load(setupFileLocation);
-		String workingDir = config.getString("workingDirectory");
-
+	private PmdReportGeneratorSettings loadSettingsProperties(String[] setupFileLocations) throws FileNotFoundException, IOException, ConfigurationException {
 		PmdReportGeneratorSettings settings = new PmdReportGeneratorSettings();
-		settings.setConfigFile(setupFileLocation);
-		settings.setRepositoryBaseUrl(config.getString("repository.baseUrl", ""));
-		settings.setRepositoryWorkingBranch(config.getString("repository.workingBranch", ""));
-		settings.setJavaHome(config.getString("resource.javaHome", ""));
-		settings.setPmdHome(config.getString("resource.pmdHome", ""));
-		settings.setProject(config.getString("project", "no_project"));
-		settings.setJiraTicket(config.getString("jira.ticket", ""));
-		settings.setVersion(config.getString("review.version", "1"));
-		settings.setSummaryTemplate(config.getString("resource.summaryTemplate", ""));
-		settings.setPmdRulesFile(config.getString("resource.pmdRulesFile", ""));
-		settings.setWorkingDirPath(workingDir);
 
-		List<String> fileList = config.getList("file");
-		settings.getClassFileLocationList().addAll(fileList);
+		for(int i=0; i<setupFileLocations.length; i++) {
+			String setupFileLocation = setupFileLocations[i];
+			System.out.println("Loading PMD report settings from " + setupFileLocation);
 
-		List<String> fList = config.getList("f");
-		settings.getClassFileLocationList().addAll(fList);
+			PropertiesConfiguration config = new PropertiesConfiguration();
+			config.setListDelimiter('|');
+			config.load(setupFileLocation);
 
-		//		if(settings.getClassFileLocationList().isEmpty()) {
-		//			throw new IllegalStateException("No files to analyze were provided.");
-		//		}
+			// Store the location of the last config file in the arguments
+			settings.setConfigFile(setupFileLocation);
 
+			if(config.containsKey("repository.baseUrl")) {
+				settings.setRepositoryBaseUrl(config.getString("repository.baseUrl", ""));
+			}
+			if(config.containsKey("repository.workingBranch")) {
+				settings.setRepositoryWorkingBranch(config.getString("repository.workingBranch", ""));
+			}
+			if(config.containsKey("resource.javaHome")) {
+				settings.setJavaHome(config.getString("resource.javaHome", ""));
+			}
+			if(config.containsKey("resource.pmdHome")) {
+				settings.setPmdHome(config.getString("resource.pmdHome", ""));
+			}
+			if(config.containsKey("project")) {
+				settings.setProject(config.getString("project", "no_project"));
+			}
+			if(config.containsKey("jira.ticket")) {
+				settings.setJiraTicket(config.getString("jira.ticket", ""));
+			}
+			if(config.containsKey("review.version")) {
+				settings.setVersion(config.getString("review.version", "1"));
+			}
+			if(config.containsKey("resource.summaryTemplate")) {
+				settings.setSummaryTemplate(config.getString("resource.summaryTemplate", ""));
+			}
+			if(config.containsKey("resource.pmdRulesFile")) {
+				settings.setPmdRulesFile(config.getString("resource.pmdRulesFile", ""));
+			}
+			if(config.containsKey("workingDirectory")) {
+				settings.setWorkingDirPath(config.getString("workingDirectory", ""));
+			}
+
+			if(config.containsKey("file")) {
+				List<String> fileList = config.getList("file");
+				settings.getClassFileLocationList().addAll(fileList);
+			}
+			if(config.containsKey("f")) {
+				List<String> fList = config.getList("f");
+				settings.getClassFileLocationList().addAll(fList);
+			}
+
+		}
 		if(StringUtils.isBlank(settings.getJavaHome())) {
 			throw new IllegalStateException("Java home path is not provided.");
 		}
@@ -194,9 +219,8 @@ public class PmdReportGenerator {
 			throw new IllegalStateException("PMD home path is not provided.");
 		}
 		if(StringUtils.isBlank(settings.getPmdRulesFile())) {
-			throw new IllegalStateException("Not PMD rules file was provided.");
+			throw new IllegalStateException("No PMD rules file was provided.");
 		}
-		
 		return settings;
 	}
 
