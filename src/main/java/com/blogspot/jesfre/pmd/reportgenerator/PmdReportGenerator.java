@@ -1,27 +1,43 @@
 package com.blogspot.jesfre.pmd.reportgenerator;
 
+import static com.blogspot.jesfre.misc.PathUtils.formatPath;
 import static com.blogspot.jesfre.velocity.utils.VelocityTemplateProcessor.getProcessor;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.PropertiesConfiguration;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 
 import com.blogspot.jesfre.commandline.CommandLineRunner;
+import com.blogspot.jesfre.svn.ModifiedFile;
+import com.blogspot.jesfre.svn.OperationType;
+import com.blogspot.jesfre.svn.utils.SvnExport;
+import com.blogspot.jesfre.svn.utils.SvnLog;
+import com.blogspot.jesfre.svn.utils.SvnLogExtractor;
 import com.blogspot.jesfre.velocity.utils.VelocityTemplateProcessor;
 
 public class PmdReportGenerator {
 	private static final String CMD_TEMPLATE = "call PMD_ROOT\\bin\\pmd -d \"SRC_FILE\" -R \"PMD_RULES_PATH\" -f csv -r \"WORKING_DIR_PATH/REPORTS_FOLDER/CLASS_NAME_PMD_Issues_STAGE_Code_Fix_vVERSION.csv\"";
 	private static final String ECHO = "echo on";
+	private static final OperationType[] OPERATIONS_TO_REVIEW = {OperationType.ADDED, OperationType.MERGED, OperationType.MODIFIED, OperationType.UPDATED};
+	private static final int MAX_MONTHS_SEARCH_IN_PAST = 12;
+	public static final String SOURCE_CODE_FOLDER = "sources";
+	private static boolean usingRepoUrl;
 
 	public static void main(String[] args) throws Exception {
 		if (args.length == 0) {
@@ -32,8 +48,20 @@ public class PmdReportGenerator {
 		System.out.println("Generating batch file.");
 		PmdReportGenerator pmdReportGenerator = new PmdReportGenerator();
 		PmdReportGeneratorSettings reportSettings = pmdReportGenerator.loadSettingsProperties(setupFilePath);
+
+		if(reportSettings.getClassFileLocationList().isEmpty()) {
+			System.out.println("Exporting files from repo...");
+			usingRepoUrl = true;
+			pmdReportGenerator.checkoutFilesFromRepo(reportSettings);
+		}
+
+		System.out.println("Generating PMD command file...");
 		pmdReportGenerator.generatePmdCommandFile(reportSettings);
+
+		System.out.println("Generating file with list of files to be analyzed...");
 		pmdReportGenerator.generateFileListFile(reportSettings);
+
+		System.out.println("Generating summary file...");
 		pmdReportGenerator.generateCommentsFile(reportSettings);
 
 		System.out.println("\nExecuting batch file.");
@@ -47,6 +75,88 @@ public class PmdReportGenerator {
 		System.out.println("\nDone.");
 	}
 
+	private void checkoutFilesFromRepo(PmdReportGeneratorSettings reportSettings)
+			throws MalformedURLException, URISyntaxException {
+		SvnLogExtractor logExtractor = new SvnLogExtractor("TBD", reportSettings.getReportOutputLocation());
+		String repoUrlString = reportSettings.getRepositoryBaseUrl() + "/" + reportSettings.getRepositoryWorkingBranch();
+		URL repoUrl = new URL(repoUrlString).toURI().normalize().toURL();
+
+		Set<String> modifiedFileSet = new LinkedHashSet<String>();
+
+		// Will discover the modified files from the repository
+		List<SvnLog> logList = logExtractor
+				.withComment(reportSettings.getJiraTicket())
+				.verbose(true)
+				.lookMonthsBack(3)
+				.clearTempFiles(true)
+				.exportLog(false)
+				.listModifiedFiles(true)
+				.analyzeUrl(repoUrl).extract();
+		for(SvnLog log : logList) {
+			for(ModifiedFile mf : log.getModifiedFiles()) {
+				if(ArrayUtils.contains(OPERATIONS_TO_REVIEW, mf.getOperation())) {
+					String fileUrlString = reportSettings.getRepositoryBaseUrl() + "/" + mf.getFile();
+					URL fileUrl = new URL(fileUrlString).toURI().normalize().toURL();
+					modifiedFileSet.add(fileUrl.toString());
+				}
+			}
+		}
+
+		String exportedFilePath = null;
+		String sourFolderPath = reportSettings.getWorkingDirPath() + "/" + SOURCE_CODE_FOLDER;
+
+		// Analyze the history of each file and export the latest
+		for(String fileUrlString : modifiedFileSet) {
+			List<SvnLog> logListIndividualFile = logExtractor
+					// .withLimit(2)
+					.withComment(reportSettings.getJiraTicket())
+					.verbose(false)
+					.lookMonthsBack(MAX_MONTHS_SEARCH_IN_PAST)
+					.clearTempFiles(true)
+					.exportLog(false)
+					.analyze(fileUrlString).extract();
+
+			if(logListIndividualFile.isEmpty()) {
+				System.err.println("No log found for " + fileUrlString + " using comment " + reportSettings.getJiraTicket());
+			}
+
+			long headRev = logListIndividualFile.get(0).getRevision();
+			long prevRev = logListIndividualFile.get(logListIndividualFile.size() - 1).getRevision();
+			if (prevRev > 1) {
+				// Compare with the revision before the list last entry's revision number
+				prevRev = prevRev - 1;
+			}
+
+			String originalFileType = FilenameUtils.getExtension(fileUrlString);
+			String cName = FilenameUtils.getBaseName(fileUrlString);
+
+			String exportedFileName = cName + "_" + (headRev > 0 ? headRev : "HEAD") + "." + originalFileType;
+			exportedFilePath = sourFolderPath + "/" + exportedFileName;
+			if(headRev > 0 ) {
+				new SvnExport()
+				.verbose(false)
+				.overwriteFile(true)
+				.export(headRev, fileUrlString, formatPath(exportedFilePath));
+			} else {
+				new SvnExport()
+				.verbose(false)
+				.overwriteFile(true)
+				.exportHead(fileUrlString, formatPath(exportedFilePath));
+			}
+
+			reportSettings.getClassFileLocationList().add(exportedFilePath);
+		}
+
+		if(!reportSettings.getClassFileLocationList().isEmpty()) {
+			// TODO print in verbose mode only
+			System.out.println("Files committed with " + reportSettings.getJiraTicket());
+			for(String fileFound : reportSettings.getClassFileLocationList()) {
+				// TODO print in verbose mode only
+				System.out.println("- " + FilenameUtils.getName(fileFound));
+			}
+		}
+	}
+
 	@SuppressWarnings("unchecked")
 	private PmdReportGeneratorSettings loadSettingsProperties(String setupFileLocation) throws FileNotFoundException, IOException, ConfigurationException {
 		PropertiesConfiguration config = new PropertiesConfiguration();
@@ -56,6 +166,8 @@ public class PmdReportGenerator {
 
 		PmdReportGeneratorSettings settings = new PmdReportGeneratorSettings();
 		settings.setConfigFile(setupFileLocation);
+		settings.setRepositoryBaseUrl(config.getString("repository.baseUrl", ""));
+		settings.setRepositoryWorkingBranch(config.getString("repository.workingBranch", ""));
 		settings.setJavaHome(config.getString("resource.javaHome", ""));
 		settings.setPmdHome(config.getString("resource.pmdHome", ""));
 		settings.setProject(config.getString("project", "no_project"));
@@ -70,6 +182,10 @@ public class PmdReportGenerator {
 
 		List<String> fList = config.getList("f");
 		settings.getClassFileLocationList().addAll(fList);
+
+		//		if(settings.getClassFileLocationList().isEmpty()) {
+		//			throw new IllegalStateException("No files to analyze were provided.");
+		//		}
 
 		if(StringUtils.isBlank(settings.getJavaHome())) {
 			throw new IllegalStateException("Java home path is not provided.");
@@ -112,9 +228,9 @@ public class PmdReportGenerator {
 			newFile = new File(newFileName);
 		}
 
+		int folderCount = 0;
 		String reportsFolder = "pmd-reports_v" + fileCount;
 		File reportsPath = new File(workingDirPath + "/" + reportsFolder);
-		int folderCount = 0;
 		while (reportsPath.exists()) {
 			reportsFolder = reportsFolder + "-" + (++folderCount);
 			reportsPath = new File(workingDirPath + "/" + reportsFolder);

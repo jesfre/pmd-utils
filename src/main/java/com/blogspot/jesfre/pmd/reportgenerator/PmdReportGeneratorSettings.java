@@ -10,6 +10,8 @@ import java.util.List;
 public class PmdReportGeneratorSettings {
 
 	private String configFile;
+	private String repositoryBaseUrl;
+	private String repositoryWorkingBranch;
 	private String summaryTemplate;
 	private String pmdRulesFile;
 	private String javaHome;
@@ -28,6 +30,22 @@ public class PmdReportGeneratorSettings {
 
 	public void setConfigFile(String configFile) {
 		this.configFile = configFile;
+	}
+
+	public String getRepositoryBaseUrl() {
+		return repositoryBaseUrl;
+	}
+
+	public void setRepositoryBaseUrl(String repositoryBaseUrl) {
+		this.repositoryBaseUrl = repositoryBaseUrl;
+	}
+
+	public String getRepositoryWorkingBranch() {
+		return repositoryWorkingBranch;
+	}
+
+	public void setRepositoryWorkingBranch(String repositoryWorkingBranch) {
+		this.repositoryWorkingBranch = repositoryWorkingBranch;
 	}
 
 	public String getSummaryTemplate() {
@@ -112,6 +130,41 @@ public class PmdReportGeneratorSettings {
 
 	public void setReportOutputLocation(String reportOutputLocation) {
 		this.reportOutputLocation = reportOutputLocation;
+	}
+
+	@Override
+	public String toString() {
+		StringBuilder builder = new StringBuilder();
+		builder.append("PmdReportGeneratorSettings [configFile=");
+		builder.append(configFile);
+		builder.append(", repositoryBaseUrl=");
+		builder.append(repositoryBaseUrl);
+		builder.append(", repositoryWorkingBranch=");
+		builder.append(repositoryWorkingBranch);
+		builder.append(", summaryTemplate=");
+		builder.append(summaryTemplate);
+		builder.append(", pmdRulesFile=");
+		builder.append(pmdRulesFile);
+		builder.append(", javaHome=");
+		builder.append(javaHome);
+		builder.append(", pmdHome=");
+		builder.append(pmdHome);
+		builder.append(", project=");
+		builder.append(project);
+		builder.append(", jiraTicket=");
+		builder.append(jiraTicket);
+		builder.append(", version=");
+		builder.append(version);
+		builder.append(", workingDirPath=");
+		builder.append(workingDirPath);
+		builder.append(", classFileLocationList=");
+		builder.append(classFileLocationList);
+		builder.append(", commandFile=");
+		builder.append(commandFile);
+		builder.append(", reportOutputLocation=");
+		builder.append(reportOutputLocation);
+		builder.append("]");
+		return builder.toString();
 	}
 
 }
