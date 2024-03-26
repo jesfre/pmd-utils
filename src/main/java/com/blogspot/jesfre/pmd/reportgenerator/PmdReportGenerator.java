@@ -235,7 +235,7 @@ public class PmdReportGenerator {
 			rulesPath = FilenameUtils.getPath(settings.getConfigFile());
 		}
 		String rulesheet = rulesPath + rulesFilename;
-		
+
 		// New batch file-name definition
 		Integer fileCount = 1;
 		String newFileName = workingDirPath + "/pmd_commands_" + fileCount + ".bat";
@@ -324,14 +324,14 @@ public class PmdReportGenerator {
 			System.err.println("No summary-template file was provided.");
 			return;
 		}
-		
+
 		String path = FilenameUtils.getFullPath(reportSettings.getSummaryTemplate());
 		String templateFilename = FilenameUtils.getName(reportSettings.getSummaryTemplate());
 		if(StringUtils.isBlank(path)) {
 			// Will try to use a template file located in the same directory as the configuration file  
 			path = FilenameUtils.getPath(reportSettings.getConfigFile());
 		}
-		
+
 		String commentsFilename = "_report_summary_" + reportSettings.getJiraTicket() + "-v" + reportSettings.getVersion() + ".txt";
 		File commentsFile = new File(reportSettings.getWorkingDirPath() + "/" + commentsFilename);
 
@@ -339,12 +339,12 @@ public class PmdReportGenerator {
 		for (String fl : reportSettings.getClassFileLocationList()) {
 			simplenames.add(FilenameUtils.getName(fl));
 		}
-		
+
 		Map<String, Object> contextParams = new HashMap<String, Object>();
 		contextParams.put("jiraTicket", reportSettings.getJiraTicket());
 		contextParams.put("version", reportSettings.getVersion());
 		contextParams.put("fileList", simplenames);
-		
+
 		VelocityTemplateProcessor templateProcessor = getProcessor(path);
 		String commentsContent = templateProcessor.process(templateFilename, contextParams);
 		FileUtils.writeStringToFile(commentsFile, commentsContent);
