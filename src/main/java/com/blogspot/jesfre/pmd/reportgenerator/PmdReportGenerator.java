@@ -54,6 +54,13 @@ public class PmdReportGenerator {
 			pmdReportGenerator.checkoutFilesFromRepo(reportSettings);
 		}
 
+		if(reportSettings.getClassFileLocationList().isEmpty()) {
+			// List of files is still empty
+			System.err.println("Cannot find a list of files to be analyze.");
+			System.out.println("\nDone.");
+			System.exit(-1);
+		}
+
 		System.out.println("Generating PMD command file...");
 		pmdReportGenerator.generatePmdCommandFile(reportSettings);
 
