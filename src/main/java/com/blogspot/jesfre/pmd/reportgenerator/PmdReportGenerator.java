@@ -175,6 +175,9 @@ public class PmdReportGenerator {
 			if(config.containsKey("repository.workingBranch")) {
 				settings.setRepositoryWorkingBranch(config.getString("repository.workingBranch", ""));
 			}
+			if(config.containsKey("global.verbose")) {
+				settings.setVerbose(config.getBoolean("global.verbose", false));
+			}
 			if(config.containsKey("resource.javaHome")) {
 				settings.setJavaHome(config.getString("resource.javaHome", ""));
 			}
