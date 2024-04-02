@@ -111,6 +111,9 @@ public class PmdReportGenerator {
 		String exportedFilePath = null;
 		String sourFolderPath = reportSettings.getWorkingDirPath() + "/" + SOURCE_CODE_FOLDER;
 
+		File sourceFolder = new File(sourFolderPath);
+		sourceFolder.mkdirs();
+
 		// Analyze the history of each file and export the latest
 		for(String fileUrlString : modifiedFileSet) {
 			List<SvnLog> logListIndividualFile = logExtractor
@@ -135,6 +138,7 @@ public class PmdReportGenerator {
 
 			String originalFileType = FilenameUtils.getExtension(fileUrlString);
 			String cName = FilenameUtils.getBaseName(fileUrlString);
+			String simpleName = FilenameUtils.getName(fileUrlString);
 
 			String exportedFileName = cName + "_" + (headRev > 0 ? headRev : "HEAD") + "." + originalFileType;
 			exportedFilePath = sourFolderPath + "/" + exportedFileName;
@@ -150,13 +154,13 @@ public class PmdReportGenerator {
 				.exportHead(fileUrlString, formatPath(exportedFilePath));
 			}
 
-			reportSettings.getClassFileLocationList().add(exportedFilePath);
+			reportSettings.getClassFileLocationList().add(new AnalyzedFileData(simpleName, exportedFilePath, headRev));
 		}
 
 		if(reportSettings.isVerbose() && !reportSettings.getClassFileLocationList().isEmpty()) {
 			System.out.println("Files committed with " + reportSettings.getJiraTicket());
-			for(String fileFound : reportSettings.getClassFileLocationList()) {
-				System.out.println("- " + FilenameUtils.getName(fileFound));
+			for (AnalyzedFileData fileData : reportSettings.getClassFileLocationList()) {
+				System.out.println("- " + FilenameUtils.getName(fileData.getOriginalFileName()));
 			}
 		}
 	}
@@ -212,11 +216,17 @@ public class PmdReportGenerator {
 
 			if(config.containsKey("file")) {
 				List<String> fileList = config.getList("file");
-				settings.getClassFileLocationList().addAll(fileList);
+				for (String filePath : fileList) {
+					String fileName = FilenameUtils.getName(filePath);
+					settings.getClassFileLocationList().add(new AnalyzedFileData(fileName, filePath, 0));
+				}
 			}
 			if(config.containsKey("f")) {
 				List<String> fList = config.getList("f");
-				settings.getClassFileLocationList().addAll(fList);
+				for (String filePath : fList) {
+					String fileName = FilenameUtils.getName(filePath);
+					settings.getClassFileLocationList().add(new AnalyzedFileData(fileName, filePath, 0));
+				}
 			}
 
 		}
@@ -233,7 +243,7 @@ public class PmdReportGenerator {
 	}
 
 	private void generatePmdCommandFile(PmdReportGeneratorSettings settings) throws Exception {
-		List<String> lines = settings.getClassFileLocationList();
+		List<AnalyzedFileData> analyzingFileList = settings.getClassFileLocationList();
 		String workingDirPath = settings.getWorkingDirPath();
 
 		String rulesPath = FilenameUtils.getFullPath(settings.getPmdRulesFile());
@@ -280,16 +290,16 @@ public class PmdReportGenerator {
 
 		System.out.println("Reading files...");
 		List<String> resultContent = new ArrayList<String>();
-		for (String f : lines) {
-			String cName = FilenameUtils.getBaseName(f);
+		for (AnalyzedFileData f : analyzingFileList) {
+			String cName = FilenameUtils.getBaseName(f.getOriginalFileName());
 			if(settings.isVerbose()) {
-				System.out.println("- " + cName + ".java");
+				System.out.println("- " + cName);
 			}
 
-			String cmdBefore = StringUtils.replace(tmplBefore, "SRC_FILE", f);
+			String cmdBefore = StringUtils.replace(tmplBefore, "SRC_FILE", f.getFileLocation());
 			cmdBefore = StringUtils.replace(cmdBefore, "CLASS_NAME", cName);
 
-			String cmdAfter = StringUtils.replace(tmplAfter, "SRC_FILE", f);
+			String cmdAfter = StringUtils.replace(tmplAfter, "SRC_FILE", f.getFileLocation());
 			cmdAfter = StringUtils.replace(cmdAfter, "CLASS_NAME", cName);
 
 			resultContent.add("SET JAVA_HOME=\""+settings.getJavaHome()+"\"");
@@ -320,10 +330,12 @@ public class PmdReportGenerator {
 		File modifiedFilesComments = new File(reportSettings.getWorkingDirPath() + "/" + commentsFilename);
 		List<String> simplenames = new ArrayList<String>();
 		simplenames.add("List of full paths:");
-		simplenames.addAll(reportSettings.getClassFileLocationList());
+		for (AnalyzedFileData fl : reportSettings.getClassFileLocationList()) {
+			simplenames.add(fl.getFileLocation());
+		}
 		simplenames.add("\nList of simple file names:");
-		for (String fl : reportSettings.getClassFileLocationList()) {
-			simplenames.add(FilenameUtils.getName(fl));
+		for (AnalyzedFileData fl : reportSettings.getClassFileLocationList()) {
+			simplenames.add(fl.getOriginalFileName());
 		}
 		FileUtils.writeLines(modifiedFilesComments, simplenames);
 	}
@@ -345,8 +357,8 @@ public class PmdReportGenerator {
 		File commentsFile = new File(reportSettings.getWorkingDirPath() + "/" + commentsFilename);
 
 		List<String> simplenames = new ArrayList<String>();
-		for (String fl : reportSettings.getClassFileLocationList()) {
-			simplenames.add(FilenameUtils.getName(fl));
+		for (AnalyzedFileData fl : reportSettings.getClassFileLocationList()) {
+			simplenames.add(fl.getOriginalFileName());
 		}
 
 		Map<String, Object> contextParams = new HashMap<String, Object>();

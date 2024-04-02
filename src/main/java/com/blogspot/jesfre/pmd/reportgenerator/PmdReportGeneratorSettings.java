@@ -22,7 +22,7 @@ public class PmdReportGeneratorSettings {
 	private String jiraTicket;
 	private String version;
 	private String workingDirPath;
-	private List<String> classFileLocationList = new ArrayList<String>();
+	private List<AnalyzedFileData> classFileLocationList = new ArrayList<AnalyzedFileData>();
 	private String commandFile;
 	private String reportOutputLocation;
 
@@ -122,7 +122,7 @@ public class PmdReportGeneratorSettings {
 		this.workingDirPath = workingDirPath;
 	}
 
-	public List<String> getClassFileLocationList() {
+	public List<AnalyzedFileData> getClassFileLocationList() {
 		return classFileLocationList;
 	}
 
