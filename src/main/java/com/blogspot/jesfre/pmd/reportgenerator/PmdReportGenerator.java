@@ -35,6 +35,8 @@ public class PmdReportGenerator {
 	private static final String CMD_TEMPLATE = "call PMD_ROOT\\bin\\pmd -d \"SRC_FILE\" -R \"PMD_RULES_PATH\" -f csv -r \"WORKING_DIR_PATH/REPORTS_FOLDER/CLASS_NAME_PMD_Issues_STAGE_Code_Fix_vVERSION.csv\"";
 	private static final String ECHO = "echo on";
 	private static final OperationType[] OPERATIONS_TO_REVIEW = {OperationType.ADDED, OperationType.MERGED, OperationType.MODIFIED, OperationType.UPDATED};
+	// TODO add valid file types to the configuration file
+	private static final String[] VALID_FILE_TYPES = { "java" };
 	private static final int MAX_MONTHS_SEARCH_IN_PAST = 12;
 	public static final String SOURCE_CODE_FOLDER = "sources";
 	private static boolean usingRepoUrl;
@@ -101,6 +103,13 @@ public class PmdReportGenerator {
 		for(SvnLog log : logList) {
 			for(ModifiedFile mf : log.getModifiedFiles()) {
 				if(ArrayUtils.contains(OPERATIONS_TO_REVIEW, mf.getOperation())) {
+					if (!ArrayUtils.contains(VALID_FILE_TYPES, FilenameUtils.getExtension(mf.getFile()))) {
+						// TODO check if this one works
+						// http://www.java2s.com/example/java/file-path-io/checks-whether-or-not-a-file-is-a-text-file-or-a-binary-one.html
+						// Instead of checking for valid file extensions
+						System.out.println("Invalid file type skipped: " + FilenameUtils.getName(mf.getFile()));
+						continue;
+					}
 					String fileUrlString = reportSettings.getRepositoryBaseUrl() + "/" + mf.getFile();
 					URL fileUrl = new URL(fileUrlString).toURI().normalize().toURL();
 					modifiedFileSet.add(fileUrl.toString());
