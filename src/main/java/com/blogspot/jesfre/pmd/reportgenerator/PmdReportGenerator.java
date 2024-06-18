@@ -89,7 +89,7 @@ public class PmdReportGenerator {
 		String repoUrlString = reportSettings.getRepositoryBaseUrl() + "/" + reportSettings.getRepositoryWorkingBranch();
 		URL repoUrl = new URL(repoUrlString).toURI().normalize().toURL();
 
-		Set<String> modifiedFileSet = new LinkedHashSet<String>();
+		Set<String> validModifiedFileSet = new LinkedHashSet<String>();
 
 		// Will discover the modified files from the repository
 		List<SvnLog> logList = logExtractor
@@ -103,16 +103,9 @@ public class PmdReportGenerator {
 		for(SvnLog log : logList) {
 			for(ModifiedFile mf : log.getModifiedFiles()) {
 				if(ArrayUtils.contains(OPERATIONS_TO_REVIEW, mf.getOperation())) {
-					if (!ArrayUtils.contains(VALID_FILE_TYPES, FilenameUtils.getExtension(mf.getFile()))) {
-						// TODO check if this one works
-						// http://www.java2s.com/example/java/file-path-io/checks-whether-or-not-a-file-is-a-text-file-or-a-binary-one.html
-						// Instead of checking for valid file extensions
-						System.out.println("Invalid file type skipped: " + FilenameUtils.getName(mf.getFile()));
-						continue;
-					}
 					String fileUrlString = reportSettings.getRepositoryBaseUrl() + "/" + mf.getFile();
 					URL fileUrl = new URL(fileUrlString).toURI().normalize().toURL();
-					modifiedFileSet.add(fileUrl.toString());
+					validModifiedFileSet.add(fileUrl.toString());
 				}
 			}
 		}
@@ -124,7 +117,7 @@ public class PmdReportGenerator {
 		sourceFolder.mkdirs();
 
 		// Analyze the history of each file and export the latest
-		for(String fileUrlString : modifiedFileSet) {
+		for (String fileUrlString : validModifiedFileSet) {
 			List<SvnLog> logListIndividualFile = logExtractor
 					// .withLimit(2)
 					.withComment(reportSettings.getJiraTicket())
@@ -300,6 +293,13 @@ public class PmdReportGenerator {
 		System.out.println("Reading files...");
 		List<String> resultContent = new ArrayList<String>();
 		for (AnalyzedFileData f : analyzingFileList) {
+			if (!ArrayUtils.contains(VALID_FILE_TYPES, FilenameUtils.getExtension(f.getOriginalFileName()))) {
+				// TODO check if this one works
+				// http://www.java2s.com/example/java/file-path-io/checks-whether-or-not-a-file-is-a-text-file-or-a-binary-one.html
+				// Instead of checking for valid file extensions
+				System.out.println("Invalid file type skipped: " + FilenameUtils.getName(f.getOriginalFileName()));
+				continue;
+			}
 			String cName = FilenameUtils.getBaseName(f.getOriginalFileName());
 			if(settings.isVerbose()) {
 				System.out.println("- " + cName);
@@ -338,12 +338,23 @@ public class PmdReportGenerator {
 		String commentsFilename = "_files_" + reportSettings.getJiraTicket() + "-v" + reportSettings.getVersion() + ".txt";
 		File modifiedFilesComments = new File(reportSettings.getWorkingDirPath() + "/" + commentsFilename);
 		List<String> simplenames = new ArrayList<String>();
-		simplenames.add("List of full paths:");
+		simplenames.add("Full paths of files listed in this ticket:");
 		for (AnalyzedFileData fl : reportSettings.getClassFileLocationList()) {
 			simplenames.add(fl.getFileLocation());
 		}
-		simplenames.add("\nList of simple file names:");
+		simplenames.add("\nSimple names of files listed in this ticket:");
 		for (AnalyzedFileData fl : reportSettings.getClassFileLocationList()) {
+			simplenames.add(fl.getOriginalFileName());
+		}
+		simplenames.add("\nFiles analyzed by PMD:");
+		for (AnalyzedFileData fl : reportSettings.getClassFileLocationList()) {
+			if (!ArrayUtils.contains(VALID_FILE_TYPES, FilenameUtils.getExtension(fl.getOriginalFileName()))) {
+				// TODO check if this one works
+				// http://www.java2s.com/example/java/file-path-io/checks-whether-or-not-a-file-is-a-text-file-or-a-binary-one.html
+				// Instead of checking for valid file extensions
+				System.out.println("Invalid file type skipped: " + FilenameUtils.getName(fl.getOriginalFileName()));
+				continue;
+			}
 			simplenames.add(fl.getOriginalFileName());
 		}
 		FileUtils.writeLines(modifiedFilesComments, simplenames);
