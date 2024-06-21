@@ -25,6 +25,7 @@ public class PmdReportGeneratorSettings {
 	private List<AnalyzedFileData> classFileLocationList = new ArrayList<AnalyzedFileData>();
 	private String commandFile;
 	private String reportOutputLocation;
+	private int searchRangeDays;
 
 	public String getConfigFile() {
 		return configFile;
@@ -142,6 +143,14 @@ public class PmdReportGeneratorSettings {
 		this.reportOutputLocation = reportOutputLocation;
 	}
 
+	public int getSearchRangeDays() {
+		return searchRangeDays;
+	}
+
+	public void setSearchRangeDays(int searchRangeDays) {
+		this.searchRangeDays = searchRangeDays;
+	}
+
 	@Override
 	public String toString() {
 		StringBuilder builder = new StringBuilder();
@@ -175,6 +184,8 @@ public class PmdReportGeneratorSettings {
 		builder.append(commandFile);
 		builder.append(", reportOutputLocation=");
 		builder.append(reportOutputLocation);
+		builder.append(", searchRangeDays=");
+		builder.append(searchRangeDays);
 		builder.append("]");
 		return builder.toString();
 	}

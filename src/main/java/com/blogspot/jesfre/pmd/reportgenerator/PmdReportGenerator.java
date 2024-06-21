@@ -37,7 +37,6 @@ public class PmdReportGenerator {
 	private static final OperationType[] OPERATIONS_TO_REVIEW = {OperationType.ADDED, OperationType.MERGED, OperationType.MODIFIED, OperationType.UPDATED};
 	// TODO add valid file types to the configuration file
 	private static final String[] VALID_FILE_TYPES = { "java" };
-	private static final int MAX_MONTHS_SEARCH_IN_PAST = 12;
 	public static final String SOURCE_CODE_FOLDER = "sources";
 	private static boolean usingRepoUrl;
 
@@ -95,7 +94,7 @@ public class PmdReportGenerator {
 		List<SvnLog> logList = logExtractor
 				.withComment(reportSettings.getJiraTicket())
 				.verbose(reportSettings.isVerbose())
-				.lookMonthsBack(3)
+				.lookDaysBack(reportSettings.getSearchRangeDays())
 				.clearTempFiles(true)
 				.exportLog(false)
 				.listModifiedFiles(true)
@@ -122,7 +121,7 @@ public class PmdReportGenerator {
 					// .withLimit(2)
 					.withComment(reportSettings.getJiraTicket())
 					.verbose(reportSettings.isVerbose())
-					.lookMonthsBack(MAX_MONTHS_SEARCH_IN_PAST)
+					.lookDaysBack(reportSettings.getSearchRangeDays())
 					.clearTempFiles(true)
 					.exportLog(false)
 					.analyze(fileUrlString).extract();
@@ -214,6 +213,9 @@ public class PmdReportGenerator {
 			}
 			if(config.containsKey("workingDirectory")) {
 				settings.setWorkingDirPath(config.getString("workingDirectory", ""));
+			}
+			if (config.containsKey("repository.search.range.days")) {
+				settings.setSearchRangeDays(config.getInt("repository.search.range.days", 1));
 			}
 
 			if(config.containsKey("file")) {
