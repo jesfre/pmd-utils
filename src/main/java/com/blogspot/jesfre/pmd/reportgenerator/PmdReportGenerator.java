@@ -11,6 +11,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -26,12 +27,14 @@ import org.apache.commons.lang.StringUtils;
 import com.blogspot.jesfre.commandline.CommandLineRunner;
 import com.blogspot.jesfre.svn.ModifiedFile;
 import com.blogspot.jesfre.svn.OperationType;
+import com.blogspot.jesfre.svn.utils.SvnDiff;
 import com.blogspot.jesfre.svn.utils.SvnExport;
 import com.blogspot.jesfre.svn.utils.SvnLog;
 import com.blogspot.jesfre.svn.utils.SvnLogExtractor;
 import com.blogspot.jesfre.velocity.utils.VelocityTemplateProcessor;
 
 public class PmdReportGenerator {
+	public static final String SLASH = System.getProperty("file.separator");
 	private static final String CMD_TEMPLATE = "call PMD_ROOT\\bin\\pmd -d \"SRC_FILE\" -R \"PMD_RULES_PATH\" -f csv -r \"WORKING_DIR_PATH/REPORTS_FOLDER/CLASS_NAME_PMD_Issues_STAGE_Code_Fix_vVERSION.csv\"";
 	private static final String ECHO = "echo on";
 	private static final OperationType[] OPERATIONS_TO_REVIEW = {OperationType.ADDED, OperationType.MERGED, OperationType.MODIFIED, OperationType.UPDATED};
@@ -49,13 +52,15 @@ public class PmdReportGenerator {
 		PmdReportGenerator pmdReportGenerator = new PmdReportGenerator();
 		PmdReportGeneratorSettings reportSettings = pmdReportGenerator.loadSettingsProperties(args);
 
+		Map<String, List<SvnLog>> analyzableFileLogs = null;
 		if(reportSettings.getClassFileLocationList().isEmpty()) {
 			System.out.println("Exporting files from repo...");
 			usingRepoUrl = true;
-			pmdReportGenerator.checkoutFilesFromRepo(reportSettings);
+			analyzableFileLogs = pmdReportGenerator.checkoutFilesFromRepo(reportSettings);
 		}
 
-		if(reportSettings.getClassFileLocationList().isEmpty()) {
+		if (reportSettings.getClassFileLocationList().isEmpty() || analyzableFileLogs == null
+				|| analyzableFileLogs.isEmpty()) {
 			// List of files is still empty
 			System.err.println("Cannot find a list of files to be analyze.");
 			System.out.println("\nDone.");
@@ -75,20 +80,24 @@ public class PmdReportGenerator {
 		CommandLineRunner runner = new CommandLineRunner();
 		runner.run(reportSettings.getCommandFile());
 
+		System.out.println("\nGenerating diff files:");
+		Map<String, String> diffFileList = pmdReportGenerator.generateDiffFiles(reportSettings, analyzableFileLogs);
+
 		System.out.println("\nUpdating reports.");
 		PmdReportUpdater updater = new PmdReportUpdater();
-		updater.updateAfterFixFiles(reportSettings.getReportOutputLocation());
+		updater.updateAfterFixFiles(reportSettings.getReportOutputLocation(), diffFileList);
 
 		System.out.println("\nDone.");
 	}
 
-	private void checkoutFilesFromRepo(PmdReportGeneratorSettings reportSettings)
+	private Map<String, List<SvnLog>> checkoutFilesFromRepo(PmdReportGeneratorSettings reportSettings)
 			throws MalformedURLException, URISyntaxException {
 		SvnLogExtractor logExtractor = new SvnLogExtractor("TBD", reportSettings.getReportOutputLocation());
 		String repoUrlString = reportSettings.getRepositoryBaseUrl() + "/" + reportSettings.getRepositoryWorkingBranch();
 		URL repoUrl = new URL(repoUrlString).toURI().normalize().toURL();
 
 		Set<String> validModifiedFileSet = new LinkedHashSet<String>();
+		Map<String, List<SvnLog>> logListPerFileName = new LinkedHashMap<String, List<SvnLog>>();
 
 		// Will discover the modified files from the repository
 		List<SvnLog> logList = logExtractor
@@ -140,6 +149,7 @@ public class PmdReportGenerator {
 			String originalFileType = FilenameUtils.getExtension(fileUrlString);
 			String cName = FilenameUtils.getBaseName(fileUrlString);
 			String simpleName = FilenameUtils.getName(fileUrlString);
+			logListPerFileName.put(fileUrlString, logListIndividualFile);
 
 			String exportedFileName = cName + "_" + (headRev > 0 ? headRev : "HEAD") + "." + originalFileType;
 			exportedFilePath = sourFolderPath + "/" + exportedFileName;
@@ -164,6 +174,7 @@ public class PmdReportGenerator {
 				System.out.println("- " + FilenameUtils.getName(fileData.getOriginalFileName()));
 			}
 		}
+		return logListPerFileName;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -394,4 +405,32 @@ public class PmdReportGenerator {
 
 	}
 
+	private Map<String, String> generateDiffFiles(PmdReportGeneratorSettings settings, Map<String, List<SvnLog>> fileRevisionListMap) {
+		Map<String, String> diffFileLocations = new LinkedHashMap<String, String>();
+		for (String file : fileRevisionListMap.keySet()) {
+			String originalFileName = FilenameUtils.getName(file);
+
+			long headRev = 0;
+			long prevRev = 0;
+			List<SvnLog> logList = fileRevisionListMap.get(file);
+			if (!logList.isEmpty()) {
+				headRev = logList.get(0).getRevision();
+				prevRev = logList.get(logList.size() - 1).getRevision();
+				if (prevRev > 1) {
+					// Compare with the revision before the list last entry's revision number
+					prevRev = prevRev - 1;
+				}
+			}
+
+			String sourFolderPath = settings.getWorkingDirPath() + SLASH + SOURCE_CODE_FOLDER;
+			String outDiffFile = sourFolderPath + SLASH + originalFileName + "_r" + headRev + "-r" + prevRev + ".diff";
+
+			File sourceFolder = new File(sourFolderPath);
+			sourceFolder.mkdirs();
+
+			new SvnDiff().exportDiff(formatPath(file), formatPath(outDiffFile), headRev, prevRev);
+			diffFileLocations.put(originalFileName, outDiffFile);
+		}
+		return diffFileLocations;
+	}
 }

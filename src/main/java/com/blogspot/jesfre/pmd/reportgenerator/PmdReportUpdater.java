@@ -22,12 +22,17 @@ import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 
+import com.blogspot.jesfre.svn.utils.diff.DiffType;
+import com.blogspot.jesfre.svn.utils.diff.DifferenceAnalyzer;
+import com.blogspot.jesfre.svn.utils.diff.DifferenceContent;
+import com.blogspot.jesfre.svn.utils.diff.DifferenceLine;
+
 /**
- * This class updates the PMD reports in given specified location
- * 
- * @author <a href="mailto:jorge.ruiz.aquino@gmail.com">Jorge Ruiz Aquino</a>
- *         Aug 1, 2022
- */
+ * This class updates the PMD reports in given specified location
+ * 
+ * @author <a href="mailto:jorge.ruiz.aquino@gmail.com">Jorge Ruiz Aquino</a>
+ *         Aug 1, 2022
+ */
 public class PmdReportUpdater {
 	private static final String TBD = "TBD";
 	private static final String SINGLE_LINE = "\\/{2}[\\*\\s]*PMD_Override.*";
@@ -36,7 +41,7 @@ public class PmdReportUpdater {
 	// private static final Pattern COMMENTS_PATTERN = Pattern.compile("/\\*(\\s|[\\n\\r])*PMD_Override(?:.|[\\n\\r])*?\\*/");
 	private static final Pattern COMMENTS_PATTERN = Pattern.compile(ALL_COMMENTS);
 	
-	public void updateAfterFixFiles(String reportLocation) throws IOException {
+	public void updateAfterFixFiles(String reportLocation, Map<String, String> diffFilePathMap) throws IOException {
 		File folder = new File(reportLocation);
 		Collection<File> fileList = FileUtils.listFiles(folder, new String[] { "csv" }, false);
 		for (File file : fileList) {
@@ -45,10 +50,12 @@ public class PmdReportUpdater {
 				continue;
 			}
 			System.out.println(file.getName() + " - Updating file... ");
+			String sourceFileName = file.getName().substring(0, file.getName().indexOf("_PMD_Issues_")) + ".java";
+			DifferenceContent diffContent = getDifferenceContent(diffFilePathMap.get(sourceFileName));
 
 			Reader reader = new FileReader(file);
 			CSVParser csvParser = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(reader);
-			List<List<String>> newReportContent = getNewReportContent(csvParser);
+			List<List<String>> newReportContent = getNewReportContent(csvParser, diffContent);
 			reader.close();
 			csvParser.close();
 
@@ -56,8 +63,20 @@ public class PmdReportUpdater {
 			System.out.println();
 		}
 	}
+	
+	private DifferenceContent getDifferenceContent(String diffPath) {
+		File diffFile = new File(diffPath);
+		DifferenceContent differenceContent = null;
+		try {
+			differenceContent = DifferenceAnalyzer.getDifferenceContent(null, diffFile);
+		} catch (Exception e1) {
+			System.out.println("Cannot colleect differences content using diff file " + diffPath);
+			e1.printStackTrace();
+		}
+		return differenceContent;
+	}
 
-	private List<List<String>> getNewReportContent(CSVParser csvParser) throws IOException {
+	private List<List<String>> getNewReportContent(CSVParser csvParser, DifferenceContent differenceContent) throws IOException {
 		System.out.println("\t Creating new content");
 		List<String> headerLabels = getUpdatedHeaderLabels(csvParser);
 		final int headerCount = headerLabels.size();
@@ -66,6 +85,16 @@ public class PmdReportUpdater {
 		Map<String, Integer> countRulesInReport = new HashMap<String, Integer>();
 		List<List<String>> newReportContent = new ArrayList<List<String>>();
 		newReportContent.add(headerLabels);
+		
+		List<Integer> modifiedLines = new ArrayList<Integer>();
+		if(differenceContent != null) {
+			for(DifferenceLine diffLine : differenceContent.getLines()) {
+				if(diffLine.getDiffType() == DiffType.BOTH || diffLine.getDiffType() == DiffType.LEFT) {
+					// Left line is from the most recent file
+					modifiedLines.add(diffLine.getLeftLinePosition());
+				}
+			}
+		}
 
 		String classFileLocation = null;
 		List<String> justifications = Collections.emptyList();
@@ -80,17 +109,35 @@ public class PmdReportUpdater {
 			for (int i = 0; i < headerCount - 1; i++) {
 				recordContent.add(record.get(i));
 			}
+			
 			String rule = record.get(7);
-			if (rule.contains("#15")) {
-				recordContent.add("Existing code");
-				justifiedRules++;
-			} else if (!justifications.isEmpty() && justificationPointer < justifications.size()) {
-				String justification = justifications.get(justificationPointer++);
-				recordContent.add(justification);
-				justifiedRules++;
+			if(!modifiedLines.isEmpty()) {
+				// To match actual modified lines from a repository diff file
+				int lineLocation = Integer.parseInt(record.get(4));
+				if(modifiedLines.contains(lineLocation)) {
+					recordContent.add(TBD);
+					rule = TBD;
+				} else if (!justifications.isEmpty() && justificationPointer < justifications.size()) {
+					String justification = justifications.get(justificationPointer++);
+					recordContent.add(justification);
+					justifiedRules++;
+				} else {
+					recordContent.add("Existing code");
+					justifiedRules++;
+				}
+				
 			} else {
-				recordContent.add(TBD);
-				rule = TBD;
+				if (rule.contains("#15")) {
+					recordContent.add("Existing code");
+					justifiedRules++;
+				} else if (!justifications.isEmpty() && justificationPointer < justifications.size()) {
+					String justification = justifications.get(justificationPointer++);
+					recordContent.add(justification);
+					justifiedRules++;
+				} else {
+					recordContent.add(TBD);
+					rule = TBD;
+				}
 			}
 
 			newReportContent.add(recordContent);
