@@ -67,6 +67,11 @@ public class PmdReportGenerator {
 			System.exit(-1);
 		}
 
+		List<SvnLog> commentsFromRepo = new ArrayList<SvnLog>();
+		for(List<SvnLog> logList : analyzableFileLogs.values()) {
+			commentsFromRepo.addAll(logList);
+		}
+
 		System.out.println("Generating PMD command file...");
 		pmdReportGenerator.generatePmdCommandFile(reportSettings);
 
@@ -74,7 +79,7 @@ public class PmdReportGenerator {
 		pmdReportGenerator.generateFileListFile(reportSettings);
 
 		System.out.println("Generating summary file...");
-		pmdReportGenerator.generateCommentsFile(reportSettings);
+		pmdReportGenerator.generateCommentsFile(reportSettings, commentsFromRepo);
 
 		System.out.println("\nExecuting batch file.");
 		CommandLineRunner runner = new CommandLineRunner();
@@ -373,7 +378,7 @@ public class PmdReportGenerator {
 		FileUtils.writeLines(modifiedFilesComments, simplenames);
 	}
 
-	private void generateCommentsFile(PmdReportGeneratorSettings reportSettings) throws IOException {
+	private void generateCommentsFile(PmdReportGeneratorSettings reportSettings, List<SvnLog> logList) throws IOException {
 		if(StringUtils.isBlank(reportSettings.getSummaryTemplate())) {
 			System.err.println("No summary-template file was provided.");
 			return;
@@ -394,10 +399,16 @@ public class PmdReportGenerator {
 			simplenames.add(fl.getOriginalFileName());
 		}
 
+		Set<String> commentList = new LinkedHashSet<String>();
+		for(SvnLog log : logList) {
+			commentList.add(log.getComment().replaceFirst(reportSettings.getJiraTicket(), ""));
+		}
+
 		Map<String, Object> contextParams = new HashMap<String, Object>();
 		contextParams.put("jiraTicket", reportSettings.getJiraTicket());
 		contextParams.put("version", reportSettings.getVersion());
 		contextParams.put("fileList", simplenames);
+		contextParams.put("commentList", commentList);
 
 		VelocityTemplateProcessor templateProcessor = getProcessor(path);
 		String commentsContent = templateProcessor.process(templateFilename, contextParams);
