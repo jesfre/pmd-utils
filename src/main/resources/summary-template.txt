@@ -8,3 +8,8 @@
 #foreach($f in $fileList)
 $f
 #end|
+
+|Comments:|
+#foreach($c in $commentList)
+$c
+#end|
